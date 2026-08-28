@@ -1,6 +1,9 @@
 import { Hono } from "hono";
+import type { Chapter, ParseResult } from "./parsers/base.ts";
 import { fetchAndParse } from "./parsers/registry.ts";
+import { parsePastedText } from "./parsers/paste.ts";
 import { translateChapter } from "./translate/pipeline.ts";
+import { translateText } from "./translate/free.ts";
 
 const PUBLIC_DIR = `${import.meta.dir}/ui/public`;
 const MIME: Record<string, string> = {
@@ -29,26 +32,70 @@ app.get("/ui/*", async (c) => {
   });
 });
 
+interface ReadSource {
+  title?: string;
+  author?: string;
+  metadata?: Record<string, unknown>;
+  url?: string;
+  chapters: Chapter[];
+}
+
+async function toReadSource(
+  url: string | undefined,
+  text: string | undefined,
+): Promise<ReadSource | { error: { code: string; message: string }; status: number }> {
+  if (url && text) {
+    return { error: { code: "BAD_REQUEST", message: "Provide either url or text, not both" }, status: 400 };
+  }
+
+  if (text !== undefined) {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return { error: { code: "BAD_REQUEST", message: "Pasted text is empty" }, status: 400 };
+    }
+    const { chapters, isEmpty } = parsePastedText(trimmed);
+    if (isEmpty || chapters.length === 0) {
+      return { error: { code: "BAD_REQUEST", message: "No readable paragraphs found in pasted text" }, status: 400 };
+    }
+    return { chapters };
+  }
+
+  if (url) {
+    let valid: URL;
+    try {
+      valid = new URL(url);
+    } catch {
+      return { error: { code: "BAD_REQUEST", message: "Invalid URL" }, status: 400 };
+    }
+    const parsed = await fetchAndParse(valid.href);
+    if (!parsed.ok) {
+      return { error: { code: parsed.error.code, message: parsed.error.message }, status: 422 };
+    }
+    return {
+      chapters: parsed.chapters,
+      title: parsed.title,
+      author: parsed.author,
+      metadata: parsed.metadata as Record<string, unknown>,
+      url: parsed.url,
+    };
+  }
+
+  return { error: { code: "BAD_REQUEST", message: "Missing url or text param" }, status: 400 };
+}
+
+const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
+
 app.get("/read", async (c) => {
   const url = c.req.query("url");
-  if (!url) {
-    return c.json({ ok: false, error: { code: "BAD_REQUEST", message: "Missing url param" } }, 400);
-  }
+  const text = c.req.query("text");
 
-  let valid: URL;
-  try {
-    valid = new URL(url);
-  } catch {
-    return c.json({ ok: false, error: { code: "BAD_REQUEST", message: "Invalid URL" } }, 400);
-  }
-
-  const parsed = await fetchAndParse(valid.href);
-  if (!parsed.ok) {
-    return c.json(parsed, 422);
+  const source = await toReadSource(url, text);
+  if ("error" in source) {
+    return c.json({ ok: false, error: source.error }, source.status as 400, JSON_HEADERS);
   }
 
   const translatedChapters = [];
-  for (const chapter of parsed.chapters) {
+  for (const chapter of source.chapters) {
     const res = await translateChapter(chapter.paragraphs);
     translatedChapters.push({
       index: chapter.index,
@@ -57,14 +104,33 @@ app.get("/read", async (c) => {
     });
   }
 
-  return c.json({
-    ok: true,
-    url: parsed.url,
-    title: parsed.title,
-    author: parsed.author,
-    metadata: parsed.metadata,
-    chapters: translatedChapters,
-  });
+  return c.json(
+    {
+      ok: true,
+      url: source.url,
+      title: source.title,
+      author: source.author,
+      metadata: source.metadata ?? {},
+      chapters: translatedChapters,
+    },
+    200,
+    JSON_HEADERS,
+  );
+});
+
+app.post("/translate", async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ ok: false, error: { code: "BAD_REQUEST", message: "Invalid JSON body" } }, 400, JSON_HEADERS);
+  }
+  const text = (body as { source?: string })?.source;
+  if (typeof text !== "string" || text.trim().length === 0) {
+    return c.json({ ok: false, error: { code: "BAD_REQUEST", message: "Missing source text" } }, 400, JSON_HEADERS);
+  }
+  const res = await translateText(text);
+  return c.json({ ok: res.ok, translated: res.translated, error: res.error }, res.ok ? 200 : 422, JSON_HEADERS);
 });
 
 const port = Number(process.env.PORT ?? 3000);
