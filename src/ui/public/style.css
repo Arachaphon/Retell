@@ -1,0 +1,236 @@
+:root {
+  --bg: #faf7f2;
+  --fg: #2b2b2b;
+  --muted: #7a7a7a;
+  --accent: #7a4bd1;
+  --accent-weak: #efe7fb;
+  --border: #e3ddd3;
+  --font-size: 1rem;
+  --line-height: 1.8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font-family: "PingFang TC", "Noto Sans Thai", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: var(--font-size);
+  line-height: var(--line-height);
+}
+
+/* ---------- Top bar ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.title-block {
+  min-width: 0;
+}
+
+.site-name {
+  font-size: 0.8em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.doc-title {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60vw;
+}
+
+.doc-author {
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.seg {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.seg-btn {
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.85em;
+  cursor: pointer;
+  color: var(--fg);
+}
+
+.seg-btn.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.icon-btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+/* ---------- Landing ---------- */
+.reader {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1rem 1.2rem 6rem;
+}
+
+.landing {
+  text-align: center;
+  padding-top: 4rem;
+}
+
+.landing h1 {
+  font-size: 1.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.url-form {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 34rem;
+  margin: 0 auto;
+}
+
+.url-form input {
+  flex: 1;
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.url-form button {
+  padding: 0.8rem 1.4rem;
+  font-size: 1rem;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.hint {
+  color: var(--muted);
+  margin-top: 0.8rem;
+  font-size: 0.85em;
+}
+
+/* ---------- Content ---------- */
+.content.hidden {
+  display: none;
+}
+
+.status {
+  text-align: center;
+  color: var(--muted);
+  margin-top: 1.5rem;
+  min-height: 1.2em;
+}
+
+.chapter-block {
+  margin-bottom: 2.5rem;
+}
+
+.chapter-title {
+  font-size: 1.25em;
+  font-weight: 700;
+  margin: 1.5rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Side-by-side: EN left, TH right */
+.para-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.para-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.para-col .label {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.para-col p {
+  margin: 0;
+}
+
+/* Alternate mode: EN paragraph then TH paragraph stacked */
+.mode-alternate .para-row {
+  display: block;
+}
+
+.mode-alternate .para-col {
+  margin-bottom: 1rem;
+}
+
+.para-failed {
+  color: var(--accent);
+  font-style: italic;
+}
+
+/* Wide screens: keep side-by-side natural; narrow already single column */
+@media (max-width: 600px) {
+  .para-row {
+    flex-direction: column;
+    gap: 0.6rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px dashed var(--border);
+  }
+
+  .para-col + .para-col {
+    padding-top: 0.4rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* In side mode on narrow screens, EN above TH per paragraph. */
+  .mode-alternate .para-col + .para-col {
+    border-top: 0;
+    padding-top: 0;
+  }
+}

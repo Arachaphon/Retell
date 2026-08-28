@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bilingual Reader</title>
+    <link rel="stylesheet" href="/ui/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="title-block">
+        <div class="site-name">Bilingual Reader</div>
+        <div id="doc-title" class="doc-title"></div>
+        <div id="doc-author" class="doc-author"></div>
+      </div>
+      <div class="controls">
+        <div class="seg" id="mode-toggle" role="tablist" aria-label="โหมดการแสดงผล">
+          <button type="button" class="seg-btn is-active" data-mode="side" role="tab" aria-selected="true">
+            คู่กัน
+          </button>
+          <button type="button" class="seg-btn" data-mode="alternate" role="tab" aria-selected="false">
+            สลับย่อหน้า
+          </button>
+        </div>
+        <label class="font-size" title="ขนาดตัวอักษร">
+          A−
+        </label>
+        <button id="font-sm" class="icon-btn" type="button" aria-label="ลดขนาดตัวอักษร">A-</button>
+        <button id="font-lg" class="icon-btn" type="button" aria-label="เพิ่มขนาดตัวอักษร">A+</button>
+      </div>
+    </header>
+
+    <main id="reader" class="reader">
+      <section id="landing" class="landing">
+        <h1>วางลิงก์นิยาย/บทความ</h1>
+        <form id="url-form" class="url-form">
+          <input
+            id="url-input"
+            type="url"
+            name="url"
+            placeholder="https://archiveofourown.org/works/12345"
+            autocomplete="off"
+            required
+          />
+          <button type="submit">อ่าน</button>
+        </form>
+        <p class="hint">รองรับ AO3 และ Wattpad (เพิ่มเติมได้เรื่อยๆ)</p>
+      </section>
+      <section id="content" class="content hidden" aria-live="polite"></section>
+      <p id="status" class="status" role="status"></p>
+    </main>
+
+    <script src="/ui/app.js" type="module"></script>
+  </body>
+</html>
