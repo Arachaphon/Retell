@@ -445,8 +445,26 @@ function bindUserScrollStop() {
 bindUserScrollStop();
 
 let ttsActive = false;
+let keepAliveTimer = null;
 
 const ttsPrefs = { rate: 1.0, voiceURI: null };
+
+function startKeepAlive() {
+  if (keepAliveTimer) return;
+  keepAliveTimer = setInterval(() => {
+    if (window.speechSynthesis && window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+      window.speechSynthesis.pause();
+      window.speechSynthesis.resume();
+    }
+  }, 10000);
+}
+
+function stopKeepAlive() {
+  if (keepAliveTimer) {
+    clearInterval(keepAliveTimer);
+    keepAliveTimer = null;
+  }
+}
 
 function allThaiVoices() {
   if (!window.speechSynthesis) return [];
@@ -461,8 +479,9 @@ function getThaiVoice() {
     const chosen = voices.find((v) => v.voiceURI === ttsPrefs.voiceURI);
     if (chosen) return chosen;
   }
+  // ลำดับแรก: เสียง Natural/Online/Neural (คุณภาพดีกว่า) -> แล้วค่อยตัวเก่า
   return (
-    // ลำดับแรก: เสียงผู้หญิงไทย (kanya / female / woman)
+    voices.find((v) => /th-TH/i.test(v.lang) && /natural|online|neural/i.test(v.name)) ||
     voices.find((v) => /th-TH/i.test(v.lang) && /kanya|-female|woman/i.test(v.name)) ||
     voices.find((v) => /th-TH/i.test(v.lang)) ||
     voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("th")) ||
@@ -471,7 +490,8 @@ function getThaiVoice() {
 }
 
 function allThaiVoicesLabel(v) {
-  return `${v.name} (${v.lang})`;
+  const type = v.localService ? "local" : "online";
+  return `${v.name} (${v.lang}) · ${type}`;
 }
 
 function populateVoiceSelect() {
@@ -482,7 +502,7 @@ function populateVoiceSelect() {
   sel.innerHTML = "";
   if (voices.length === 0) {
     const opt = document.createElement("option");
-    opt.textContent = "เสียงไทย (ระบบ)";
+    opt.textContent = "ไม่พบเสียงไทยในระบบ";
     opt.value = "";
     sel.appendChild(opt);
   } else {
@@ -496,21 +516,52 @@ function populateVoiceSelect() {
   sel.value = current || ttsPrefs.voiceURI || "";
 }
 
-function initTtsBar() {
+function initTtsBar(story, currentChapterId) {
   const sel = document.getElementById("tts-voice");
   const rate = document.getElementById("tts-rate");
   const rateVal = document.getElementById("tts-rate-val");
+  const chapterSel = document.getElementById("tts-chapter");
 
-  // เติมรายการเสียง (เสียงไทยอัตโนมัติ เลือกผู้หญิงถ้ามี)
+  // Populate chapter selector
+  const populateChapters = () => {
+    if (!chapterSel) return;
+    chapterSel.innerHTML = "";
+    story.chapters.forEach((ch, idx) => {
+      const opt = document.createElement("option");
+      opt.value = ch.id;
+      opt.textContent = `${idx + 1}. ${ch.title || `ตอนที่ ${idx + 1}`}`;
+      if (ch.id === currentChapterId) opt.selected = true;
+      chapterSel.appendChild(opt);
+    });
+  };
+  populateChapters();
+
+  chapterSel.addEventListener("change", async () => {
+    const newChId = chapterSel.value;
+    if (newChId === currentChapterId) return;
+    const wasSpeaking = ttsActive;
+    stopTTS();
+    await openChapter(story.id, newChId);
+    if (wasSpeaking) {
+      const newStory = await getStory(story.id);
+      const newCh = newStory?.chapters?.find((c) => c.id === newChId);
+      if (newCh) {
+        startTTS(newCh, () => renderChapterBody(newStory, newCh, currentEditMode), newStory, 0);
+      }
+    }
+  });
+
+  // เติมรายการเสียง (เลือกเสียง Natural/Online ก่อน แล้วค่อยตัวเก่า)
   const fill = () => {
     populateVoiceSelect();
     const voices = allThaiVoices();
-    const female = voices.find((v) => /th-TH/i.test(v.lang) && /kanya|-female|woman/i.test(v.name)) ||
+    const best = voices.find((v) => /th-TH/i.test(v.lang) && /natural|online|neural/i.test(v.name)) ||
+      voices.find((v) => /th-TH/i.test(v.lang) && /kanya|-female|woman/i.test(v.name)) ||
       voices.find((v) => /th-TH/i.test(v.lang)) ||
       voices[0];
-    if (female) {
-      sel.value = female.voiceURI;
-      ttsPrefs.voiceURI = female.voiceURI;
+    if (best) {
+      sel.value = best.voiceURI;
+      ttsPrefs.voiceURI = best.voiceURI;
     }
   };
   if (speechSynthesis && speechSynthesis.getVoices().length) {
@@ -545,6 +596,7 @@ function highlightPara(i, on) {
 
 function stopTTS() {
   ttsActive = false;
+  stopKeepAlive();
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   document.querySelectorAll("#chapter-content .para-row.speaking").forEach((r) => {
     r.classList.remove("speaking");
@@ -552,23 +604,36 @@ function stopTTS() {
   ttsSetState(false, false);
 }
 
-function startTTS(ch, render) {
+function startTTS(ch, render, story = null, startParaIndex = 0) {
   if (!window.speechSynthesis) {
     setStatus("เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียง", true);
     return;
   }
-  if (ttsActive) { stopTTS(); return; }
+  if (ttsActive) {
+    stopTTS();
+    if (startParaIndex === 0 && (arguments.length < 4 || !arguments[3])) {
+      return;
+    }
+  }
 
   if (speechSynthesis.getVoices().length === 0) {
-    speechSynthesis.onvoiceschanged = () => { ttsSetState(true, true); ttsActive = true; speakChapter(ch, render); };
+    speechSynthesis.onvoiceschanged = () => {
+      ttsSetState(true, true);
+      ttsActive = true;
+      startKeepAlive();
+      speakChapter(ch, render, story, startParaIndex);
+    };
     return;
   }
   ttsActive = true;
   ttsSetState(true, true);
-  speakChapter(ch, render);
+  startKeepAlive();
+  const statusEl = document.getElementById("tts-status");
+  if (statusEl) statusEl.textContent = `กำลังอ่าน: ${ch.title || "ตอนนี้"}`;
+  speakChapter(ch, render, story, startParaIndex);
 }
 
-function speakChapter(ch, render) {
+function speakChapter(ch, render, story = null, startParaIndex = 0) {
   const done = ch.paragraphs.filter((p) => p.status === "done" && p.sourceTH);
   if (done.length === 0) {
     setStatus("ยังไม่มีเนื้อหาไทยให้อ่าน — กดแปลก่อน", true);
@@ -582,14 +647,52 @@ function speakChapter(ch, render) {
     if (p.status === "done" && p.sourceTH) textIndexes.push(i);
   });
 
-  let cursor = 0;
+  let cursor = textIndexes.findIndex((idx) => idx >= startParaIndex);
+  if (cursor === -1) cursor = 0;
 
   const makeUtterance = (text) => {
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "th-TH";
     if (voice) u.voice = voice;
     u.rate = ttsPrefs.rate;
+    u.pitch = 1.0; // คงที่ ป้องกันเสียงผิดเพี้ยน/ขัด
+    u.volume = 1.0;
     return u;
+  };
+
+  const updateTtsStatus = (msg) => {
+    const el = document.getElementById("tts-status");
+    if (el) el.textContent = msg;
+  };
+
+  const loadNextChapter = async () => {
+    if (!story) {
+      stopTTS();
+      return;
+    }
+    const chapters = story.chapters;
+    const currentIdx = chapters.findIndex((c) => c.id === ch.id);
+    if (currentIdx === -1 || currentIdx >= chapters.length - 1) {
+      updateTtsStatus("จบเรื่องแล้ว");
+      stopTTS();
+      return;
+    }
+    const nextCh = chapters[currentIdx + 1];
+    // Load fresh story data
+    const freshStory = await getStory(story.id);
+    const freshCh = freshStory?.chapters?.find((c) => c.id === nextCh.id);
+    if (!freshCh) {
+      stopTTS();
+      return;
+    }
+    updateTtsStatus(`อ่านต่อ: ${freshCh.title || `ตอนที่ ${currentIdx + 2}`}`);
+    // Update chapter selector
+    const chapterSel = document.getElementById("tts-chapter");
+    if (chapterSel) chapterSel.value = freshCh.id;
+    // Re-render UI to new chapter
+    await openChapter(story.id, freshCh.id);
+    // Continue reading next chapter from startParaIndex = 0
+    speakChapter(freshCh, () => renderChapterBody(freshStory, freshCh, currentEditMode), freshStory, 0);
   };
 
   const speakPara = (paraIndex, done) => {
@@ -601,12 +704,14 @@ function speakChapter(ch, render) {
     const row = rows[paraIndex];
     if (row) row.scrollIntoView({ block: "center", behavior: "smooth" });
 
+    // อ่านทั้งย่อหน้าเป็นประโยคเดียวถ้าเป็นไปได้ (ลด gap ระหว่างชิ้น ไม่ "ติดขัด")
+    // แบ่งเฉพาะเมื่อข้อความยาวเกินเกณฑ์ (browser บางตัวตัดเมื่อชิ้นยาวเกิน)
     const chunks = breakForTTS(text);
 
+    // buffering: เตรียม speak ของย่อหน้าถัดไปล่วงหน้าก่อนจบ ลด gap สะดุด
     const playChunk = (chunkIdx) => {
       if (!ttsActive) { highlightPara(paraIndex, false); return; }
       const u = makeUtterance(chunks[chunkIdx]);
-      // buffering: preload ชิ้นถัดไป/ย่อหน้าถัดไปก่อนจบ ลด gap สะดุด
       u.onend = () => {
         if (chunkIdx < chunks.length - 1) {
           playChunk(chunkIdx + 1);
@@ -616,7 +721,13 @@ function speakChapter(ch, render) {
         }
       };
       u.onerror = (e) => {
-        if (e.error === "canceled" || e.error === "interrupted") { highlightPara(paraIndex, false); return; }
+        if (e.error === "canceled" || e.error === "interrupted") {
+          highlightPara(paraIndex, false);
+          stopKeepAlive();
+          ttsActive = false;
+          ttsSetState(false, false);
+          return;
+        }
       };
       speechSynthesis.speak(u);
     };
@@ -625,8 +736,8 @@ function speakChapter(ch, render) {
 
   const speakNext = () => {
     if (!ttsActive || cursor >= textIndexes.length) {
-      ttsActive = false;
-      ttsSetState(false, false);
+      // Chapter finished - try to auto-advance
+      loadNextChapter();
       return;
     }
     const paraIndex = textIndexes[cursor];
@@ -638,18 +749,21 @@ function speakChapter(ch, render) {
 }
 
 function breakForTTS(text) {
-  // ตัดเฉพาะจบประโยคจริง (. ! ? … ฯลฯ/ฯ) ไม่ใช่ า (สระที่เกิดแทบทุกคำ)
-  // เพื่อให้อ่านเป็นประโยคเต็มๆ ไม่สะดุดกลางคำ/กลางประโยค
+  // อ่านทั้งย่อหน้าเป็น utterance เดียวถ้าเป็นไปได้ (ลด gap ระหว่างชิ้น -> ไม่ "ติดขัด")
+  // แบ่งเป็นหลายชิ้นเฉพาะเมื่อข้อความยาวเกินเกณฑ์ (browser บางตัวตัดเมื่อชิ้นยาวเกิน)
+  const MAX = 380;
+  if (text.length <= MAX) return [text];
+
   const blocks = [];
   let cur = "";
   for (const chChar of text) {
     cur += chChar;
     const isEnd = chChar === "." || chChar === "!" || chChar === "?" ||
-      chChar === "…" || chChar === "ฯ";
-    if (isEnd && cur.length >= 20) {
+      chChar === "…" || chChar === "ฯ" || chChar === "”" || chChar === '"';
+    if (isEnd && cur.length >= 40) {
       blocks.push(cur.trim());
       cur = "";
-    } else if (cur.length >= 150) {
+    } else if (cur.length >= MAX) {
       blocks.push(cur.trim());
       cur = "";
     }
@@ -707,6 +821,10 @@ async function openChapter(storyId, chapterId) {
         <button id="tts-btn" class="btn" type="button">🔊 อ่านออกเสียง</button>
         <button id="tts-stop" class="btn ghost hidden" type="button">⏹ หยุด</button>
         <label class="tts-field">
+          <span>ตอน</span>
+          <select id="tts-chapter"></select>
+        </label>
+        <label class="tts-field">
           <span>เสียง</span>
           <select id="tts-voice"></select>
         </label>
@@ -714,6 +832,9 @@ async function openChapter(storyId, chapterId) {
           <span>ความเร็ว</span>
           <input id="tts-rate" type="range" min="60" max="140" step="5" value="100" />
           <span id="tts-rate-val">1.0×</span>
+        </label>
+        <label class="tts-field">
+          <span id="tts-status" class="tts-status"></span>
         </label>
       </div>
     </div>`;
@@ -728,9 +849,9 @@ async function openChapter(storyId, chapterId) {
   });
   document.getElementById("copy-ch").addEventListener("click", () => copyChapter(ch));
 
-  document.getElementById("tts-btn").addEventListener("click", () => startTTS(ch, () => renderChapterBody(story, ch, currentEditMode)));
+  document.getElementById("tts-btn").addEventListener("click", () => startTTS(ch, () => renderChapterBody(story, ch, currentEditMode), story));
   document.getElementById("tts-stop").addEventListener("click", () => stopTTS());
-  initTtsBar();
+  initTtsBar(story, ch.id);
 
   openPasteDialog(story, ch);
   initEditToggle(story, ch);
@@ -795,18 +916,37 @@ function renderChapterBody(story, ch, editMode = false) {
     // โหมดอ่าน: ทั้ง 2 ภาษา / ไทยล้วน / อังกฤษล้วน (โหมดแก้ไขจะแสดงทั้งคู่เสมอ)
     const showEn = editMode || currentMode !== "th";
     const showTh = editMode || currentMode !== "en";
+    const playBtn = !editMode ? `<button type="button" class="para-play-btn" title="เริ่มอ่านจากย่อหน้านี้" data-para-idx="${i}">🔊</button>` : "";
     const colEn = showEn
       ? `<div class="para-col"><div class="label">อังกฤษ</div><p>${escapeHtml(p.sourceEN)}</p></div>` : "";
     const colTh = showTh
       ? `<div class="para-col"><div class="label">ไทย${manualBadge}${errorBadge}</div>${th}</div>` : "";
 
-    return `<div class="para-row">${colEn}${colTh}</div>`;
+    return `<div class="para-row" data-para-idx="${i}">${playBtn}${colEn}${colTh}</div>`;
   });
 
   const saveAllBar = editMode ?
     `<div class="chv-actions edit-toolbar"><button id="save-all-th" class="btn" type="button">💾 บันทึกการป้อนทั้งหมด</button></div>` : "";
 
   box.innerHTML = saveAllBar + (rows.join("") || `<p class="empty">ตอนนี้ยังไม่มีเนื้อหา</p>`);
+
+  box.querySelectorAll(".para-play-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.paraIdx, 10);
+      startTTS(ch, () => renderChapterBody(story, ch, currentEditMode), story, idx);
+    });
+  });
+
+  box.querySelectorAll(".para-row").forEach((row) => {
+    row.addEventListener("click", (e) => {
+      if (e.target.closest("textarea, button, a, input, select")) return;
+      const idx = parseInt(row.dataset.paraIdx, 10);
+      if (!isNaN(idx)) {
+        startTTS(ch, () => renderChapterBody(story, ch, currentEditMode), story, idx);
+      }
+    });
+  });
 
   if (editMode) {
     box.querySelectorAll(".save-th").forEach((btn) => {

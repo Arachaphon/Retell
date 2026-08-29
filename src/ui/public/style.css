@@ -344,6 +344,40 @@ body {
   display: flex;
   gap: 1rem;
   margin-bottom: 1rem;
+  position: relative;
+  cursor: pointer;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.para-row:hover {
+  background: rgba(122, 75, 209, 0.05);
+}
+
+.para-play-btn {
+  opacity: 0.3;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  align-self: flex-start;
+  margin-top: 0.2rem;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.85em;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.para-row:hover .para-play-btn,
+.para-row.speaking .para-play-btn {
+  opacity: 1;
+}
+
+.para-play-btn:hover {
+  transform: scale(1.1);
+  background: var(--accent-weak);
+  border-color: var(--accent);
 }
 
 .para-col {
@@ -588,7 +622,8 @@ dialog textarea {
   border-radius: 8px;
   background: #fff;
   color: var(--fg);
-  max-width: 220px;
+  max-width: 260px;
+  min-width: 220px;
 }
 
 .tts-field input[type="range"] {
