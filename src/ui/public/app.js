@@ -440,16 +440,25 @@ function openAddChapterDialog(storyId, story) {
 const scrollSpeed = { value: 3 };
 let scrollRaf = null;
 let autoScrollOn = false;
+let scrollSubpixel = 0;
 
-function scrollPxPerFrame() {
-  // slider 1..7 -> px/frame (~60fps). value 3 => 60px/s, 7 => 240px/s
-  const fps = 60;
-  const pxs = [20, 40, 60, 90, 120, 170, 240];
-  return pxs[scrollSpeed.value - 1] / fps;
+function scrollPxPerSecond() {
+  // Ultra-fine reading speeds in pixels per second:
+  // 1: 6px/s (very slow, comfortable reading)
+  // 2: 12px/s (slow reading)
+  // 3: 20px/s (medium reading)
+  // 4: 35px/s
+  // 5: 55px/s
+  // 6: 85px/s
+  // 7: 130px/s
+  const speeds = [6, 12, 20, 35, 55, 85, 130];
+  const idx = Math.max(0, Math.min(6, scrollSpeed.value - 1));
+  return speeds[idx];
 }
 
 function stopAutoScroll() {
   autoScrollOn = false;
+  scrollSubpixel = 0;
   if (scrollRaf) {
     cancelAnimationFrame(scrollRaf);
     scrollRaf = null;
@@ -475,14 +484,16 @@ function initAutoScroll(storyId, chapterId) {
     });
   }
 
-  const speedInput = document.getElementById("scroll-speed");
-  const speedVal = document.getElementById("speed-val");
-  if (speedInput && speedVal) {
-    speedInput.addEventListener("input", () => {
-      scrollSpeed.value = Number(speedInput.value);
-      speedVal.textContent = String(scrollSpeed.value);
+  const speedInputs = document.querySelectorAll("#scroll-speed");
+  const speedVals = document.querySelectorAll("#speed-val");
+  speedInputs.forEach((input) => {
+    input.addEventListener("input", () => {
+      const val = Number(input.value);
+      scrollSpeed.value = val;
+      speedInputs.forEach((inp) => (inp.value = String(val)));
+      speedVals.forEach((v) => (v.textContent = String(val)));
     });
-  }
+  });
 
   const toggleBtns = document.querySelectorAll("#scroll-toggle, #scroll-toggle-float");
   toggleBtns.forEach((btn) => {
@@ -492,6 +503,7 @@ function initAutoScroll(storyId, chapterId) {
         return;
       }
       autoScrollOn = true;
+      scrollSubpixel = 0;
       toggleBtns.forEach((b) => {
         b.textContent = "⏸️ หยุดเลื่อน";
         b.classList.add("active");
@@ -500,10 +512,18 @@ function initAutoScroll(storyId, chapterId) {
       let last = performance.now();
       const step = (now) => {
         if (!autoScrollOn) return;
-        const dt = now - last;
+        const dt = Math.min((now - last) / 1000, 0.1); // seconds
         last = now;
-        const pxPerFrame = scrollPxPerFrame();
-        window.scrollBy({ top: (pxPerFrame * Math.min(dt, 50)) / 16.67 });
+
+        const deltaPx = scrollPxPerSecond() * dt;
+        scrollSubpixel += deltaPx;
+
+        if (scrollSubpixel >= 1) {
+          const movePx = Math.floor(scrollSubpixel);
+          scrollSubpixel -= movePx;
+          window.scrollBy({ top: movePx, behavior: "instant" });
+        }
+
         if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 8) {
           stopAutoScroll();
           return;
