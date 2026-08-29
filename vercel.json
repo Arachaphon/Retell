@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/read", "destination": "/api/index" },
+    { "source": "/translate", "destination": "/api/index" },
+    { "source": "/ui/(.*)", "destination": "/src/ui/public/$1" },
+    { "source": "/", "destination": "/src/ui/public/index.html" },
+    { "source": "/(.*)", "destination": "/src/ui/public/index.html" }
+  ]
+}
