@@ -37,6 +37,20 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+function isTtsModeEnabled() {
+  const val = localStorage.getItem("retell_tts_enabled");
+  return val === null ? true : val === "1";
+}
+
+function setTtsEnabled(enabled) {
+  localStorage.setItem("retell_tts_enabled", enabled ? "1" : "0");
+  const toggleBtn = document.getElementById("tts-mode-toggle");
+  if (toggleBtn) {
+    toggleBtn.textContent = enabled ? "🔊 เสียง: เปิด" : "🔇 เสียง: ปิด";
+    toggleBtn.classList.toggle("active", enabled);
+  }
+}
+
 function setLastRead(storyId, chapterId) {
   try {
     localStorage.setItem("retell_last_read", JSON.stringify({ storyId, chapterId, timestamp: Date.now() }));
@@ -574,6 +588,22 @@ function initTtsBar(story, currentChapterId) {
   const rateVal = document.getElementById("tts-rate-val");
   const chapterSel = document.getElementById("tts-chapter");
 
+  const toggleBtn = document.getElementById("tts-mode-toggle");
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", () => {
+      const nextState = !isTtsModeEnabled();
+      setTtsEnabled(nextState);
+      if (!nextState) {
+        stopTTS();
+        toast("ปิดโหมดเสียงแล้ว (ปลอดภัยจากการเผลอกดโดน)");
+      } else {
+        toast("เปิดโหมดเสียงแล้ว");
+      }
+      const ch = story.chapters.find((c) => c.id === currentChapterId) || story.chapters[0];
+      if (ch) renderChapterBody(story, ch, currentEditMode);
+    });
+  }
+
   // Populate chapter selector
   const populateChapters = () => {
     if (!chapterSel) return;
@@ -656,11 +686,22 @@ function stopTTS() {
   ttsSetState(false, false);
 }
 
-function startTTS(ch, render, story = null, startParaIndex = 0) {
+function startTTS(ch, render, story = null, startParaIndex = 0, isDirectPlayButton = false) {
   if (!window.speechSynthesis) {
     setStatus("เบราว์เซอร์นี้ไม่รองรับการอ่านออกเสียง", true);
     return;
   }
+
+  if (!isTtsModeEnabled()) {
+    if (isDirectPlayButton) {
+      setTtsEnabled(true);
+      toast("เปิดโหมดอ่านออกเสียงแล้ว");
+    } else {
+      toast("โหมดอ่านออกเสียงปิดอยู่ — กดเปิดเสียงที่แถบล่างเพื่อฟัง");
+      return;
+    }
+  }
+
   if (ttsActive) {
     stopTTS();
     if (startParaIndex === 0 && (arguments.length < 4 || !arguments[3])) {
@@ -875,6 +916,7 @@ async function openChapter(storyId, chapterId) {
     </section>
     <div class="tts-bar">
       <div class="tts-bar-inner">
+        <button id="tts-mode-toggle" class="btn ghost ${isTtsModeEnabled() ? 'active' : ''}" type="button">${isTtsModeEnabled() ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด'}</button>
         <button id="tts-btn" class="btn" type="button">🔊 อ่านออกเสียง</button>
         <button id="tts-stop" class="btn ghost hidden" type="button">⏹ หยุด</button>
         <label class="tts-field">
@@ -906,7 +948,7 @@ async function openChapter(storyId, chapterId) {
   });
   document.getElementById("copy-ch").addEventListener("click", () => copyChapter(ch));
 
-  document.getElementById("tts-btn").addEventListener("click", () => startTTS(ch, () => renderChapterBody(story, ch, currentEditMode), story));
+  document.getElementById("tts-btn").addEventListener("click", () => startTTS(ch, () => renderChapterBody(story, ch, currentEditMode), story, 0, true));
   document.getElementById("tts-stop").addEventListener("click", () => stopTTS());
   initTtsBar(story, ch.id);
 
@@ -964,7 +1006,10 @@ function renderChapterBody(story, ch, editMode = false) {
       th = `<p>${escapeHtml(text)}</p>`;
     }
 
-    const playBtn = !editMode ? `<button type="button" class="para-play-btn" title="เริ่มอ่านจากย่อหน้านี้" data-para-idx="${i}">🔊</button>` : "";
+    const isEnabled = isTtsModeEnabled();
+    const playIcon = isEnabled ? "🔊" : "🔇";
+    const playTitle = isEnabled ? "เริ่มอ่านจากย่อหน้านี้" : "โหมดเสียงปิดอยู่ (กดเปิดที่แถบล่าง)";
+    const playBtn = !editMode ? `<button type="button" class="para-play-btn ${!isEnabled ? 'muted' : ''}" title="${playTitle}" data-para-idx="${i}">${playIcon}</button>` : "";
     const colTh = `<div class="para-col">${th}</div>`;
 
     return `<div class="para-row" data-para-idx="${i}">${playBtn}${colTh}</div>`;
@@ -978,6 +1023,10 @@ function renderChapterBody(story, ch, editMode = false) {
   box.querySelectorAll(".para-play-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (!isTtsModeEnabled()) {
+        toast("โหมดอ่านออกเสียงปิดอยู่ — กดเปิดเสียงที่แถบล่างเพื่อฟัง");
+        return;
+      }
       const idx = parseInt(btn.dataset.paraIdx, 10);
       startTTS(ch, () => renderChapterBody(story, ch, currentEditMode), story, idx);
     });
@@ -986,6 +1035,7 @@ function renderChapterBody(story, ch, editMode = false) {
   box.querySelectorAll(".para-row").forEach((row) => {
     row.addEventListener("click", (e) => {
       if (e.target.closest("textarea, button, a, input, select")) return;
+      if (!isTtsModeEnabled()) return;
       const idx = parseInt(row.dataset.paraIdx, 10);
       if (!isNaN(idx)) {
         startTTS(ch, () => renderChapterBody(story, ch, currentEditMode), story, idx);

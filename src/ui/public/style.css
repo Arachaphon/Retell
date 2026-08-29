@@ -386,6 +386,16 @@ body {
   flex-shrink: 0;
 }
 
+.para-play-btn.muted {
+  opacity: 0.2;
+}
+
+#tts-mode-toggle.active {
+  background: var(--accent-weak);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .para-row:hover .para-play-btn,
 .para-row.speaking .para-play-btn {
   opacity: 1;
