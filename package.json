@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
     "cheerio": "^1.2.0",
     "hono": "^4.6.0"
   },

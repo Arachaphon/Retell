@@ -1,12 +1,72 @@
 import { handle } from "hono/vercel";
 import { Hono } from "hono";
+import { createClient } from "@supabase/supabase-js";
 import type { Chapter } from "../src/parsers/base.ts";
 import { fetchAndParse } from "../src/parsers/registry.ts";
 import { parsePastedText } from "../src/parsers/paste.ts";
 import { translateChapter } from "../src/translate/pipeline.ts";
 import { translateText } from "../src/translate/free.ts";
 
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://ovuwbytuthrymiyotldm.supabase.co";
+const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_KEY || "";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const app = new Hono();
+
+app.get("/api/stories", async (c) => {
+  try {
+    const { data, error } = await supabase.from("stories").select("*").order("updatedAt", { ascending: false });
+    if (error) return c.json({ ok: false, error: error.message }, 500);
+    return c.json({ ok: true, stories: data || [] });
+  } catch (err: any) {
+    return c.json({ ok: false, error: err?.message }, 500);
+  }
+});
+
+app.get("/api/stories/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const { data, error } = await supabase.from("stories").select("*").eq("id", id).single();
+    if (error) return c.json({ ok: false, error: error.message }, 404);
+    return c.json({ ok: true, story: data });
+  } catch (err: any) {
+    return c.json({ ok: false, error: err?.message }, 500);
+  }
+});
+
+app.post("/api/stories", async (c) => {
+  try {
+    const body = await c.req.json();
+    if (!body || !body.id || !body.title) {
+      return c.json({ ok: false, error: "Invalid story data" }, 400);
+    }
+    const story = {
+      id: body.id,
+      title: body.title,
+      author: body.author || null,
+      chapters: body.chapters || [],
+      createdAt: body.createdAt || Date.now(),
+      updatedAt: Date.now(),
+    };
+    const { error } = await supabase.from("stories").upsert(story);
+    if (error) return c.json({ ok: false, error: error.message }, 500);
+    return c.json({ ok: true, story });
+  } catch (err: any) {
+    return c.json({ ok: false, error: err?.message }, 500);
+  }
+});
+
+app.delete("/api/stories/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const { error } = await supabase.from("stories").delete().eq("id", id);
+    if (error) return c.json({ ok: false, error: error.message }, 500);
+    return c.json({ ok: true });
+  } catch (err: any) {
+    return c.json({ ok: false, error: err?.message }, 500);
+  }
+});
 
 interface ReadSource {
   title?: string;

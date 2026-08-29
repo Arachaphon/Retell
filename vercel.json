@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/read", "destination": "/api/index" },
     { "source": "/translate", "destination": "/api/index" },
     { "source": "/ui/(.*)", "destination": "/src/ui/public/$1" },

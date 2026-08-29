@@ -1,9 +1,15 @@
 import { Hono } from "hono";
+import { createClient } from "@supabase/supabase-js";
 import type { Chapter, ParseResult } from "./parsers/base.ts";
 import { fetchAndParse } from "./parsers/registry.ts";
 import { parsePastedText } from "./parsers/paste.ts";
 import { translateChapter } from "./translate/pipeline.ts";
 import { translateText } from "./translate/free.ts";
+
+const SUPABASE_URL = process.env.SUPABASE_URL || "https://ovuwbytuthrymiyotldm.supabase.co";
+const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_KEY || "";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const PUBLIC_DIR = `${import.meta.dir}/ui/public`;
 const MIME: Record<string, string> = {
@@ -16,6 +22,60 @@ const MIME: Record<string, string> = {
 };
 
 const app = new Hono();
+
+app.get("/api/stories", async (c) => {
+  try {
+    const { data, error } = await supabase.from("stories").select("*").order("updatedAt", { ascending: false });
+    if (error) return c.json({ ok: false, error: error.message }, 500);
+    return c.json({ ok: true, stories: data || [] });
+  } catch (err: any) {
+    return c.json({ ok: false, error: err?.message }, 500);
+  }
+});
+
+app.get("/api/stories/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const { data, error } = await supabase.from("stories").select("*").eq("id", id).single();
+    if (error) return c.json({ ok: false, error: error.message }, 404);
+    return c.json({ ok: true, story: data });
+  } catch (err: any) {
+    return c.json({ ok: false, error: err?.message }, 500);
+  }
+});
+
+app.post("/api/stories", async (c) => {
+  try {
+    const body = await c.req.json();
+    if (!body || !body.id || !body.title) {
+      return c.json({ ok: false, error: "Invalid story data" }, 400);
+    }
+    const story = {
+      id: body.id,
+      title: body.title,
+      author: body.author || null,
+      chapters: body.chapters || [],
+      createdAt: body.createdAt || Date.now(),
+      updatedAt: Date.now(),
+    };
+    const { error } = await supabase.from("stories").upsert(story);
+    if (error) return c.json({ ok: false, error: error.message }, 500);
+    return c.json({ ok: true, story });
+  } catch (err: any) {
+    return c.json({ ok: false, error: err?.message }, 500);
+  }
+});
+
+app.delete("/api/stories/:id", async (c) => {
+  const id = c.req.param("id");
+  try {
+    const { error } = await supabase.from("stories").delete().eq("id", id);
+    if (error) return c.json({ ok: false, error: error.message }, 500);
+    return c.json({ ok: true });
+  } catch (err: any) {
+    return c.json({ ok: false, error: err?.message }, 500);
+  }
+});
 
 app.get("/", (c) => {
   return new Response(Bun.file(`${PUBLIC_DIR}/index.html`), {
