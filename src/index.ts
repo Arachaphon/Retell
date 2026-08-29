@@ -7,7 +7,7 @@ import { translateChapter } from "./translate/pipeline.ts";
 import { translateText } from "./translate/free.ts";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ovuwbytuthrymiyotldm.supabase.co";
-const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_KEY || "";
+const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_KEY || "sb_publishable_O39lL6Hu_N6r5FJabAS4RA_QoIiRxUl";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
