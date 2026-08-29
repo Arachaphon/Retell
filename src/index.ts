@@ -105,15 +105,16 @@ const handleReadRequest = async (c: any) => {
     return c.json({ ok: false, error: source.error }, source.status as 400, JSON_HEADERS);
   }
 
-  const translatedChapters = [];
-  for (const chapter of source.chapters) {
-    const res = await translateChapter(chapter.paragraphs);
-    translatedChapters.push({
-      index: chapter.index,
-      title: chapter.title,
-      paragraphs: res.translated,
-    });
-  }
+  const parsedChapters = source.chapters.map((chapter) => ({
+    index: chapter.index,
+    title: chapter.title,
+    paragraphs: chapter.paragraphs.map((p, i) => ({
+      index: i,
+      source: p,
+      translated: p,
+      ok: true,
+    })),
+  }));
 
   return c.json(
     {
@@ -122,7 +123,7 @@ const handleReadRequest = async (c: any) => {
       title: source.title,
       author: source.author,
       metadata: source.metadata ?? {},
-      chapters: translatedChapters,
+      chapters: parsedChapters,
     },
     200,
     JSON_HEADERS,
