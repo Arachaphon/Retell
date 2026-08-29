@@ -173,18 +173,16 @@ async function renderStory(storyId, openChapterId = null) {
 
   let chapterItems = "";
   for (const ch of story.chapters) {
-    const { pending, done, errors } = countByStatus(ch);
-    const statusBadge = ` แปลแล้ว ${done} / รอ ${pending}${errors ? ` / พลาด ${errors}` : ""}`;
     chapterItems += `
       <div class="chapter-card">
         <button class="chapter-head" data-toggle-ch="${escapeHtml(ch.id)}" type="button">
           <span class="ch-title">${escapeHtml(ch.title || `ตอนที่ ${story.chapters.findIndex((c) => c.id === ch.id) + 1}`)}</span>
-          <span class="ch-status">${statusBadge}</span>
+          <span class="ch-status hidden"></span>
           <span class="chevron">▸</span>
         </button>
         <div class="chapter-body hidden" id="ch-body-${escapeHtml(ch.id)}">
           <div class="chapter-actions">
-            <a href="#" class="btn-link" data-read-ch="${escapeHtml(ch.id)}">อ่าน / แปล</a>
+            <a href="#" class="btn-link" data-read-ch="${escapeHtml(ch.id)}">เปิดอ่าน / ฟัง</a>
             <a href="#" class="btn-link" data-edit-ch="${escapeHtml(ch.id)}">แก้ไขชื่อ</a>
             <a href="#" class="btn-link danger" data-del-ch="${escapeHtml(ch.id)}">ลบตอน</a>
           </div>
@@ -633,10 +631,14 @@ function startTTS(ch, render, story = null, startParaIndex = 0) {
   speakChapter(ch, render, story, startParaIndex);
 }
 
+function getParaText(p) {
+  return (p?.sourceTH || p?.sourceEN || "").trim();
+}
+
 function speakChapter(ch, render, story = null, startParaIndex = 0) {
-  const done = ch.paragraphs.filter((p) => p.status === "done" && p.sourceTH);
-  if (done.length === 0) {
-    setStatus("ยังไม่มีเนื้อหาไทยให้อ่าน — กดแปลก่อน", true);
+  const available = ch.paragraphs.filter((p) => getParaText(p) !== "");
+  if (available.length === 0) {
+    setStatus("ยังไม่มีเนื้อหาให้อ่าน", true);
     stopTTS();
     return;
   }
@@ -644,7 +646,7 @@ function speakChapter(ch, render, story = null, startParaIndex = 0) {
   const voice = getThaiVoice();
   const textIndexes = [];
   ch.paragraphs.forEach((p, i) => {
-    if (p.status === "done" && p.sourceTH) textIndexes.push(i);
+    if (getParaText(p) !== "") textIndexes.push(i);
   });
 
   let cursor = textIndexes.findIndex((idx) => idx >= startParaIndex);
@@ -697,7 +699,7 @@ function speakChapter(ch, render, story = null, startParaIndex = 0) {
 
   const speakPara = (paraIndex, done) => {
     if (!ttsActive) { highlightPara(paraIndex, false); return; }
-    const text = ch.paragraphs[paraIndex].sourceTH;
+    const text = getParaText(ch.paragraphs[paraIndex]);
 
     highlightPara(paraIndex, true);
     const rows = document.querySelectorAll("#chapter-content .para-row");

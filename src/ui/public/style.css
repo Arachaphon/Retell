@@ -293,47 +293,13 @@ body {
   color: var(--fg);
 }
 
-.read-mode-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  margin: 0.4rem 0;
-}
-
-.read-mode-label {
-  font-size: 0.85em;
-  color: var(--muted);
-}
-
-.seg {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  overflow: hidden;
-  background: #fff;
-}
-
-.seg-btn {
-  border: 0;
-  background: transparent;
-  padding: 0.45rem 1rem;
-  font-size: 0.9em;
-  cursor: pointer;
-  color: var(--fg);
-  touch-action: manipulation;
-}
-
-.seg-btn[data-selected="true"] {
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
-}
-
-.chv-progress {
-  color: var(--muted);
-  font-size: 0.9em;
-  margin-bottom: 1rem;
+/* Hide translation UI for clean reader experience */
+#translate-now,
+#paste-th,
+.read-mode-bar,
+.chv-progress,
+.para-col .label {
+  display: none !important;
 }
 
 .chapter-content {
