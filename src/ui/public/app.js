@@ -365,7 +365,11 @@ function openAddChapterDialog(storyId, story) {
     try {
       const isUrl = /^https?:\/\//i.test(raw);
       if (isUrl) {
-        const res = await fetch(`/read?url=${encodeURIComponent(raw)}`);
+        const res = await fetch("/read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: raw }),
+        });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) {
           setStatus("ดึง URL ไม่สำเร็จ: " + (data?.error?.message ?? `HTTP ${res.status}`), true);
@@ -373,21 +377,15 @@ function openAddChapterDialog(storyId, story) {
         }
         sourceUrl = data.url;
         sourceEN = (data.chapters?.[0]?.paragraphs ?? []).map((p) => p.source);
-        if (!title && data.chapters?.[0]?.title) {
-          // keep title from chapter if provided by user? use empty->auto naming
-        }
       } else {
-        const res = await fetch("/read", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: raw }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) {
-          setStatus("อ่านข้อความไม่สำเร็จ: " + (data?.error?.message ?? `HTTP ${res.status}`), true);
-          return;
-        }
-        sourceEN = (data.chapters?.[0]?.paragraphs ?? []).map((p) => p.source);
+        // Parse pasted text client-side directly (instant, offline, zero network error)
+        sourceEN = raw
+          .replace(/\r\n/g, "\n")
+          .replace(/\u00a0/g, " ")
+          .replace(/\t/g, " ")
+          .split(/\n[ \t]*\n/)
+          .map((block) => block.replace(/\n+/g, " ").replace(/[ \t]+/g, " ").trim())
+          .filter((block) => block.length > 0);
       }
     } catch (err) {
       setStatus("เกิดข้อผิดพลาด: " + (err?.message ?? err), true);
