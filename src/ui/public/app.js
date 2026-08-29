@@ -90,28 +90,40 @@ async function renderLibrary() {
     return [];
   });
 
+  const sortedStories = [...stories].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
   const lastRead = getLastRead();
-  let quickReadHtml = "";
+  let targetStory = null;
+  let targetCh = null;
+
   if (lastRead && lastRead.storyId && lastRead.chapterId) {
-    const targetStory = stories.find((s) => s.id === lastRead.storyId);
-    const targetCh = targetStory?.chapters?.find((c) => c.id === lastRead.chapterId);
-    if (targetStory && targetCh) {
-      const chIdx = targetStory.chapters.findIndex((c) => c.id === targetCh.id);
-      const chTitle = targetCh.title || `ตอนที่ ${chIdx + 1}`;
-      quickReadHtml = `
-        <div class="quick-read-card">
-          <div class="quick-read-info">
-            <span class="quick-read-badge">📖 อ่านค้างไว้</span>
-            <div class="quick-read-title">${escapeHtml(targetStory.title)}</div>
-            <div class="quick-read-sub">${escapeHtml(chTitle)}</div>
-          </div>
-          <button id="quick-read-btn" class="btn" type="button" data-story-id="${escapeHtml(targetStory.id)}" data-ch-id="${escapeHtml(targetCh.id)}">▶ อ่านต่อด่วน</button>
-        </div>`;
-    }
+    targetStory = stories.find((s) => s.id === lastRead.storyId);
+    targetCh = targetStory?.chapters?.find((c) => c.id === lastRead.chapterId);
+  }
+
+  // Fallback to most recently updated story and its first chapter if no explicit last read
+  if ((!targetStory || !targetCh) && sortedStories.length > 0) {
+    targetStory = sortedStories[0];
+    targetCh = targetStory.chapters?.[0] || null;
+  }
+
+  let quickReadHtml = "";
+  if (targetStory && targetCh) {
+    const chIdx = targetStory.chapters.findIndex((c) => c.id === targetCh.id);
+    const chTitle = targetCh.title || `ตอนที่ ${chIdx + 1}`;
+    quickReadHtml = `
+      <div class="quick-read-card">
+        <div class="quick-read-info">
+          <span class="quick-read-badge">📖 อ่านค้างไว้ / อ่านล่าสุด</span>
+          <div class="quick-read-title">${escapeHtml(targetStory.title)}</div>
+          <div class="quick-read-sub">${escapeHtml(chTitle)}</div>
+        </div>
+        <button id="quick-read-btn" class="btn" type="button" data-story-id="${escapeHtml(targetStory.id)}" data-ch-id="${escapeHtml(targetCh.id)}">▶ อ่านต่อด่วน</button>
+      </div>`;
   }
 
   let cards = "";
-  for (const s of stories.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))) {
+  for (const s of sortedStories) {
     cards += `
       <div class="book-card">
         <h3 class="book-title">${escapeHtml(s.title)}</h3>
