@@ -378,12 +378,11 @@ function openAddChapterDialog(storyId, story) {
         sourceUrl = data.url;
         sourceEN = (data.chapters?.[0]?.paragraphs ?? []).map((p) => p.source);
       } else {
-        // Parse pasted text client-side directly (instant, offline, zero network error)
-        sourceEN = raw
-          .replace(/\r\n/g, "\n")
-          .replace(/\u00a0/g, " ")
-          .replace(/\t/g, " ")
-          .split(/\n[ \t]*\n/)
+        // Parse pasted text client-side directly with smart paragraph splitting
+        const norm = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\u00a0/g, " ");
+        const hasDouble = /\n[ \t]*\n/.test(norm);
+        const rawBlocks = hasDouble ? norm.split(/\n[ \t]*\n/) : norm.split(/\n+/);
+        sourceEN = rawBlocks
           .map((block) => block.replace(/\n+/g, " ").replace(/[ \t]+/g, " ").trim())
           .filter((block) => block.length > 0);
       }

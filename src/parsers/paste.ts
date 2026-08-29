@@ -6,11 +6,18 @@ import type { Chapter } from "./base.ts";
  * single chapter (multi-chapter splitting is out of scope for now).
  */
 export function parsePastedParagraphs(text: string): string[] {
-  return text
+  const normalized = text
     .replace(/\r\n/g, "\n")
-    .replace(/\u00a0/g, " ")
-    .replace(/\t/g, " ")
-    .split(/\n[ \t]*\n/)
+    .replace(/\r/g, "\n")
+    .replace(/\u00a0/g, " ");
+
+  const hasDoubleNewline = /\n[ \t]*\n/.test(normalized);
+
+  const blocks = hasDoubleNewline
+    ? normalized.split(/\n[ \t]*\n/)
+    : normalized.split(/\n+/);
+
+  return blocks
     .map((block) => block.replace(/\n+/g, " ").replace(/[ \t]+/g, " ").trim())
     .filter((block) => block.length > 0);
 }
