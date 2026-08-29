@@ -61,9 +61,20 @@ async function toReadSource(
 
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 
-app.get("/read", async (c) => {
-  const url = c.req.query("url");
-  const text = c.req.query("text");
+const handleReadRequest = async (c: any) => {
+  let url: string | undefined;
+  let text: string | undefined;
+
+  if (c.req.method === "POST") {
+    try {
+      const body = await c.req.json();
+      url = body?.url;
+      text = body?.text;
+    } catch {}
+  } else {
+    url = c.req.query("url");
+    text = c.req.query("text");
+  }
 
   const source = await toReadSource(url, text);
   if ("error" in source) {
@@ -92,7 +103,10 @@ app.get("/read", async (c) => {
     200,
     JSON_HEADERS,
   );
-});
+};
+
+app.get("/read", handleReadRequest);
+app.post("/read", handleReadRequest);
 
 app.post("/translate", async (c) => {
   let body: unknown;

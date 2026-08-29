@@ -377,7 +377,11 @@ function openAddChapterDialog(storyId, story) {
           // keep title from chapter if provided by user? use empty->auto naming
         }
       } else {
-        const res = await fetch(`/read?text=${encodeURIComponent(raw)}`);
+        const res = await fetch("/read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: raw }),
+        });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) {
           setStatus("อ่านข้อความไม่สำเร็จ: " + (data?.error?.message ?? `HTTP ${res.status}`), true);
