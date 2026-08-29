@@ -648,7 +648,8 @@ dialog textarea {
   flex-shrink: 0;
 }
 
-#tts-settings-toggle.active {
+#tts-settings-toggle.active,
+#scroll-toggle-float.active {
   background: var(--accent-weak);
   color: var(--accent);
   border-color: var(--accent);

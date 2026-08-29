@@ -454,50 +454,64 @@ function stopAutoScroll() {
     cancelAnimationFrame(scrollRaf);
     scrollRaf = null;
   }
-  const btn = document.getElementById("scroll-toggle");
-  if (btn) btn.textContent = "▶ เลื่อน";
+  document.querySelectorAll("#scroll-toggle, #scroll-toggle-float").forEach((btn) => {
+    btn.textContent = "📜 เลื่อนหน้า";
+    btn.classList.remove("active");
+  });
 }
 
 function initAutoScroll(storyId, chapterId) {
-  document.getElementById("scroll-top").addEventListener("click", () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  });
-  document.getElementById("scroll-bottom").addEventListener("click", () => {
-    const el = document.getElementById("chapter-content");
-    if (el) el.scrollIntoView({ block: "end", behavior: "smooth" });
-  });
+  const scrollTop = document.getElementById("scroll-top");
+  if (scrollTop) {
+    scrollTop.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+  const scrollBottom = document.getElementById("scroll-bottom");
+  if (scrollBottom) {
+    scrollBottom.addEventListener("click", () => {
+      const el = document.getElementById("chapter-content");
+      if (el) el.scrollIntoView({ block: "end", behavior: "smooth" });
+    });
+  }
 
   const speedInput = document.getElementById("scroll-speed");
   const speedVal = document.getElementById("speed-val");
-  speedInput.addEventListener("input", () => {
-    scrollSpeed.value = Number(speedInput.value);
-    speedVal.textContent = String(scrollSpeed.value);
-  });
+  if (speedInput && speedVal) {
+    speedInput.addEventListener("input", () => {
+      scrollSpeed.value = Number(speedInput.value);
+      speedVal.textContent = String(scrollSpeed.value);
+    });
+  }
 
-  document.getElementById("scroll-toggle").addEventListener("click", () => {
-    if (autoScrollOn) {
-      stopAutoScroll();
-      return;
-    }
-    autoScrollOn = true;
-    const btn = document.getElementById("scroll-toggle");
-    btn.textContent = "⏸ หยุด";
-    btn.classList.add("active");
-
-    let last = performance.now();
-    const step = (now) => {
-      if (!autoScrollOn) return;
-      const dt = now - last;
-      last = now;
-      const pxPerFrame = scrollPxPerFrame();
-      window.scrollBy({ top: pxPerFrame * Math.min(dt, 50) / 16.67 });
-      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 8) {
+  const toggleBtns = document.querySelectorAll("#scroll-toggle, #scroll-toggle-float");
+  toggleBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (autoScrollOn) {
         stopAutoScroll();
         return;
       }
+      autoScrollOn = true;
+      toggleBtns.forEach((b) => {
+        b.textContent = "⏸️ หยุดเลื่อน";
+        b.classList.add("active");
+      });
+
+      let last = performance.now();
+      const step = (now) => {
+        if (!autoScrollOn) return;
+        const dt = now - last;
+        last = now;
+        const pxPerFrame = scrollPxPerFrame();
+        window.scrollBy({ top: (pxPerFrame * Math.min(dt, 50)) / 16.67 });
+        if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 8) {
+          stopAutoScroll();
+          return;
+        }
+        scrollRaf = requestAnimationFrame(step);
+      };
       scrollRaf = requestAnimationFrame(step);
-    };
-    scrollRaf = requestAnimationFrame(step);
+    });
   });
 }
 
@@ -930,10 +944,16 @@ async function openChapter(storyId, chapterId) {
           <button id="tts-mode-toggle" class="btn ghost ${isTtsModeEnabled() ? 'active' : ''}" type="button">${isTtsModeEnabled() ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด'}</button>
           <button id="tts-btn" class="btn" type="button">▶️ อ่านออกเสียง</button>
           <button id="tts-stop" class="btn ghost hidden" type="button">⏹ หยุด</button>
-          <button id="tts-settings-toggle" class="btn ghost" type="button" title="ปรับแต่งเสียงและความเร็ว">⚙️ ตั้งค่าเสียง</button>
+          <button id="scroll-toggle-float" class="btn ghost" type="button">📜 เลื่อนหน้า</button>
+          <button id="tts-settings-toggle" class="btn ghost" type="button" title="ปรับแต่งเสียงและความเร็ว">⚙️ ตั้งค่า</button>
           <span id="tts-status" class="tts-status"></span>
         </div>
         <div id="tts-settings-panel" class="tts-settings-panel hidden">
+          <label class="tts-field">
+            <span>ความเร็วเลื่อน</span>
+            <input id="scroll-speed" type="range" min="1" max="7" step="1" value="3" />
+            <span id="speed-val" class="speed-val">3</span>
+          </label>
           <label class="tts-field">
             <span>ตอน</span>
             <select id="tts-chapter"></select>
@@ -943,7 +963,7 @@ async function openChapter(storyId, chapterId) {
             <select id="tts-voice"></select>
           </label>
           <label class="tts-field">
-            <span>ความเร็ว</span>
+            <span>ความเร็วเสียง</span>
             <input id="tts-rate" type="range" min="60" max="140" step="5" value="100" />
             <span id="tts-rate-val">1.0×</span>
           </label>
