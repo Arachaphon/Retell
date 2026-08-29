@@ -14,7 +14,7 @@ const fontSm = document.getElementById("font-sm");
 const fontLg = document.getElementById("font-lg");
 const toastEl = document.getElementById("toast");
 
-let currentMode = "both";
+let currentMode = "th";
 let translating = false; // กันกดปุ่ม translate ซ้ำหลายครั้งพร้อมกัน
 
 function setStatus(msg, isError = false) {
@@ -349,8 +349,8 @@ function openAddChapterDialog(storyId, story) {
       paragraphs: sourceEN.map((text, i) => ({
         id: i,
         sourceEN: text,
-        sourceTH: undefined,
-        status: "pending",
+        sourceTH: text,
+        status: "done",
         error: undefined,
       })),
     };
@@ -894,37 +894,25 @@ function renderChapterBody(story, ch, editMode = false) {
   const byMp = (mp) => Array.from(box.querySelectorAll(".th-editor")).find((t) => t.dataset.mp === mp);
 
   const rows = ch.paragraphs.map((p, i) => {
-    const errorBadge = p.status === "error" ? ` <span class="para-failed">⚠ ${escapeHtml(p.error || "แปลไม่สำเร็จ")}</span>` : "";
-    const manualBadge = p.manual ? ' <span class="manual-badge">แก้เอง</span>' : "";
-
+    const text = p.sourceTH || p.sourceEN || "";
     let th;
     if (editMode) {
       th = `
         <div class="th-editor-wrap">
-          <textarea class="th-editor" data-mp="${escapeHtml(p.id)}" placeholder="ป้อน/วางคำแปลไทยของย่อหน้านี้">${escapeHtml(p.sourceTH || "")}</textarea>
+          <textarea class="th-editor" data-mp="${escapeHtml(p.id)}" placeholder="แก้ไขเนื้อหาย่อหน้านี้">${escapeHtml(text)}</textarea>
           <div class="th-editor-actions">
             <button type="button" class="btn-link save-th" data-mp="${escapeHtml(p.id)}">บันทึก</button>
             ${p.manual ? `<button type="button" class="btn-link danger reset-th" data-mp="${escapeHtml(p.id)}">ล้าง</button>` : ""}
           </div>
         </div>`;
-    } else if (p.status === "done" && p.sourceTH) {
-      th = `<p>${escapeHtml(p.sourceTH)}</p>`;
-    } else if (p.status === "error") {
-      th = `<p class="para-failed">⚠ ${escapeHtml(p.error || "แปลไม่สำเร็จ")}</p>`;
     } else {
-      th = `<p class="para-pending">…ยังไม่แปล (${i + 1})</p>`;
+      th = `<p>${escapeHtml(text)}</p>`;
     }
 
-    // โหมดอ่าน: ทั้ง 2 ภาษา / ไทยล้วน / อังกฤษล้วน (โหมดแก้ไขจะแสดงทั้งคู่เสมอ)
-    const showEn = editMode || currentMode !== "th";
-    const showTh = editMode || currentMode !== "en";
     const playBtn = !editMode ? `<button type="button" class="para-play-btn" title="เริ่มอ่านจากย่อหน้านี้" data-para-idx="${i}">🔊</button>` : "";
-    const colEn = showEn
-      ? `<div class="para-col"><div class="label">อังกฤษ</div><p>${escapeHtml(p.sourceEN)}</p></div>` : "";
-    const colTh = showTh
-      ? `<div class="para-col"><div class="label">ไทย${manualBadge}${errorBadge}</div>${th}</div>` : "";
+    const colTh = `<div class="para-col">${th}</div>`;
 
-    return `<div class="para-row" data-para-idx="${i}">${playBtn}${colEn}${colTh}</div>`;
+    return `<div class="para-row" data-para-idx="${i}">${playBtn}${colTh}</div>`;
   });
 
   const saveAllBar = editMode ?
