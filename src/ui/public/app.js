@@ -604,6 +604,16 @@ function initTtsBar(story, currentChapterId) {
     });
   }
 
+  const settingsToggle = document.getElementById("tts-settings-toggle");
+  const settingsPanel = document.getElementById("tts-settings-panel");
+  if (settingsToggle && settingsPanel) {
+    settingsToggle.addEventListener("click", () => {
+      const isHidden = settingsPanel.classList.contains("hidden");
+      settingsPanel.classList.toggle("hidden", !isHidden);
+      settingsToggle.classList.toggle("active", isHidden);
+    });
+  }
+
   // Populate chapter selector
   const populateChapters = () => {
     if (!chapterSel) return;
@@ -916,25 +926,28 @@ async function openChapter(storyId, chapterId) {
     </section>
     <div class="tts-bar">
       <div class="tts-bar-inner">
-        <button id="tts-mode-toggle" class="btn ghost ${isTtsModeEnabled() ? 'active' : ''}" type="button">${isTtsModeEnabled() ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด'}</button>
-        <button id="tts-btn" class="btn" type="button">🔊 อ่านออกเสียง</button>
-        <button id="tts-stop" class="btn ghost hidden" type="button">⏹ หยุด</button>
-        <label class="tts-field">
-          <span>ตอน</span>
-          <select id="tts-chapter"></select>
-        </label>
-        <label class="tts-field">
-          <span>เสียง</span>
-          <select id="tts-voice"></select>
-        </label>
-        <label class="tts-field">
-          <span>ความเร็ว</span>
-          <input id="tts-rate" type="range" min="60" max="140" step="5" value="100" />
-          <span id="tts-rate-val">1.0×</span>
-        </label>
-        <label class="tts-field">
+        <div class="tts-bar-main">
+          <button id="tts-mode-toggle" class="btn ghost ${isTtsModeEnabled() ? 'active' : ''}" type="button">${isTtsModeEnabled() ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด'}</button>
+          <button id="tts-btn" class="btn" type="button">▶️ อ่านออกเสียง</button>
+          <button id="tts-stop" class="btn ghost hidden" type="button">⏹ หยุด</button>
+          <button id="tts-settings-toggle" class="btn ghost" type="button" title="ปรับแต่งเสียงและความเร็ว">⚙️ ตั้งค่าเสียง</button>
           <span id="tts-status" class="tts-status"></span>
-        </label>
+        </div>
+        <div id="tts-settings-panel" class="tts-settings-panel hidden">
+          <label class="tts-field">
+            <span>ตอน</span>
+            <select id="tts-chapter"></select>
+          </label>
+          <label class="tts-field">
+            <span>เสียง</span>
+            <select id="tts-voice"></select>
+          </label>
+          <label class="tts-field">
+            <span>ความเร็ว</span>
+            <input id="tts-rate" type="range" min="60" max="140" step="5" value="100" />
+            <span id="tts-rate-val">1.0×</span>
+          </label>
+        </div>
       </div>
     </div>`;
 
