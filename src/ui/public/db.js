@@ -62,29 +62,55 @@ async function deleteStoryLocal(id) {
   });
 }
 
+const SUPABASE_URL = "https://ovuwbytuthrymiyotldm.supabase.co";
+const PUBLISHABLE_KEY = "sb_publishable_O39lL6Hu_N6r5FJabAS4RA_QoIiRxUl";
+
+const HEADERS = {
+  "apikey": PUBLISHABLE_KEY,
+  "Authorization": `Bearer ${PUBLISHABLE_KEY}`,
+  "Content-Type": "application/json",
+};
+
 export async function getAllStories() {
   try {
-    const res = await fetch("/api/stories");
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.ok && Array.isArray(data.stories)) {
-      for (const s of data.stories) {
-        putStoryLocal(s).catch(() => {});
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/stories?select=*&order=updatedAt.desc`, { headers: HEADERS });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        for (const s of data) {
+          putStoryLocal(s).catch(() => {});
+        }
+        // Also upload any local stories that might not be on Supabase yet
+        const locals = await getAllStoriesLocal();
+        for (const localStory of locals) {
+          if (!data.some((remote) => remote.id === localStory.id)) {
+            putStory(localStory).catch(() => {});
+          }
+        }
+        return data.length > 0 ? data : locals;
       }
-      return data.stories;
+    } else {
+      console.warn("Supabase fetch failed:", res.status, await res.text());
     }
-  } catch {}
+  } catch (err) {
+    console.warn("Supabase network error:", err);
+  }
   return getAllStoriesLocal();
 }
 
 export async function getStory(id) {
   try {
-    const res = await fetch(`/api/stories/${encodeURIComponent(id)}`);
-    const data = await res.json().catch(() => ({}));
-    if (res.ok && data.ok && data.story) {
-      putStoryLocal(data.story).catch(() => {});
-      return data.story;
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/stories?id=eq.${encodeURIComponent(id)}&select=*`, { headers: HEADERS });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        putStoryLocal(data[0]).catch(() => {});
+        return data[0];
+      }
     }
-  } catch {}
+  } catch (err) {
+    console.warn("Supabase getStory error:", err);
+  }
   return getStoryLocal(id);
 }
 
@@ -92,19 +118,30 @@ export async function putStory(story) {
   const payload = { ...story, updatedAt: Date.now() };
   await putStoryLocal(payload).catch(() => {});
   try {
-    await fetch("/api/stories", {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/stories`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { ...HEADERS, "Prefer": "resolution=merge-duplicates" },
       body: JSON.stringify(payload),
     });
-  } catch {}
+    if (!res.ok) {
+      console.error("Supabase putStory error:", res.status, await res.text());
+    }
+  } catch (err) {
+    console.error("Supabase putStory network error:", err);
+  }
 }
 
 export async function deleteStory(id) {
   await deleteStoryLocal(id).catch(() => {});
   try {
-    await fetch(`/api/stories/${encodeURIComponent(id)}`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/stories?id=eq.${encodeURIComponent(id)}`, {
       method: "DELETE",
+      headers: HEADERS,
     });
-  } catch {}
+    if (!res.ok) {
+      console.error("Supabase deleteStory error:", res.status, await res.text());
+    }
+  } catch (err) {
+    console.error("Supabase deleteStory network error:", err);
+  }
 }
