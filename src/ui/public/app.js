@@ -37,6 +37,21 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+function setLastRead(storyId, chapterId) {
+  try {
+    localStorage.setItem("retell_last_read", JSON.stringify({ storyId, chapterId, timestamp: Date.now() }));
+  } catch {}
+}
+
+function getLastRead() {
+  try {
+    const raw = localStorage.getItem("retell_last_read");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function fmtDate(ts) {
   return ts ? new Date(ts).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" }) : "";
 }
@@ -75,15 +90,33 @@ async function renderLibrary() {
     return [];
   });
 
+  const lastRead = getLastRead();
+  let quickReadHtml = "";
+  if (lastRead && lastRead.storyId && lastRead.chapterId) {
+    const targetStory = stories.find((s) => s.id === lastRead.storyId);
+    const targetCh = targetStory?.chapters?.find((c) => c.id === lastRead.chapterId);
+    if (targetStory && targetCh) {
+      const chIdx = targetStory.chapters.findIndex((c) => c.id === targetCh.id);
+      const chTitle = targetCh.title || `ตอนที่ ${chIdx + 1}`;
+      quickReadHtml = `
+        <div class="quick-read-card">
+          <div class="quick-read-info">
+            <span class="quick-read-badge">📖 อ่านค้างไว้</span>
+            <div class="quick-read-title">${escapeHtml(targetStory.title)}</div>
+            <div class="quick-read-sub">${escapeHtml(chTitle)}</div>
+          </div>
+          <button id="quick-read-btn" class="btn" type="button" data-story-id="${escapeHtml(targetStory.id)}" data-ch-id="${escapeHtml(targetCh.id)}">▶ อ่านต่อด่วน</button>
+        </div>`;
+    }
+  }
+
   let cards = "";
   for (const s of stories.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))) {
-    const totalPending = s.chapters.reduce((n, ch) => n + countByStatus(ch).pending, 0);
-    const cardPending = totalPending > 0 ? ` · ค้างแปล ${totalPending} ย่อหน้า` : "";
     cards += `
       <div class="book-card">
         <h3 class="book-title">${escapeHtml(s.title)}</h3>
         ${s.author ? `<div class="book-author">${escapeHtml(s.author)}</div>` : ""}
-        <div class="book-meta">${s.chapters.length} ตอน · แก้ไข ${fmtDate(s.updatedAt)}${cardPending}</div>
+        <div class="book-meta">${s.chapters.length} ตอน · แก้ไข ${fmtDate(s.updatedAt)}</div>
         <div class="book-actions">
           <a href="#" class="btn-link" data-open-story="${escapeHtml(s.id)}">เปิดอ่าน</a>
           <a href="#" class="btn-link danger" data-del-story="${escapeHtml(s.id)}">ลบเรื่อง</a>
@@ -97,8 +130,16 @@ async function renderLibrary() {
         <h1>ชั้นวางหนังสือ</h1>
         <button id="new-story" class="btn" type="button">+ สร้างเรื่องใหม่</button>
       </div>
+      ${quickReadHtml}
       ${stories.length ? `<div class="book-grid">${cards}</div>` : `<p class="empty">ยังไม่มีเรื่อง กด "สร้างเรื่องใหม่" เพื่อเริ่ม</p>`}
     </section>`;
+
+  const qrBtn = document.getElementById("quick-read-btn");
+  if (qrBtn) {
+    qrBtn.addEventListener("click", () => {
+      renderStory(qrBtn.dataset.storyId, qrBtn.dataset.chId);
+    });
+  }
 
   document.getElementById("new-story").addEventListener("click", openNewStoryDialog);
   app.querySelectorAll("[data-open-story]").forEach((el) =>
@@ -781,6 +822,7 @@ async function openChapter(storyId, chapterId) {
     setStatus("ไม่พบตอน", true);
     return;
   }
+  setLastRead(story.id, ch.id);
   const { pending, done } = countByStatus(ch);
   const backBtn = `<a href="#" id="back-story" class="btn-link">← กลับไปเรื่อง</a>`;
   currentEditMode = false;

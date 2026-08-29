@@ -131,6 +131,57 @@ body {
 }
 
 /* ---------- Library ---------- */
+.quick-read-card {
+  background: linear-gradient(135deg, #7a4bd1, #5c2fb7);
+  color: #fff;
+  border-radius: 16px;
+  padding: 1.1rem 1.4rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  box-shadow: 0 4px 14px rgba(122, 75, 209, 0.22);
+}
+
+.quick-read-badge {
+  font-size: 0.78em;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  display: inline-block;
+  margin-bottom: 0.35rem;
+}
+
+.quick-read-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 0.15rem;
+}
+
+.quick-read-sub {
+  font-size: 0.9em;
+  opacity: 0.9;
+}
+
+.quick-read-card .btn {
+  background: #fff;
+  color: var(--accent);
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.65rem 1.4rem;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.quick-read-card .btn:hover {
+  transform: scale(1.04);
+  background: #f5efff;
+}
+
 .lib-head {
   display: flex;
   align-items: center;
